@@ -1,0 +1,77 @@
+//modificar valore CFBundleIdentifier
+
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+   "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+
+<plist version="1.0">
+<dict>
+
+    <!-- 🔧 Info di base -->
+    <key>CFBundleName</key>
+    <string>RealEstate360</string>
+    
+    <key>CFBundleDisplayName</key>
+    <string>RealEstate360</string>
+
+    <key>CFBundleIdentifier</key>
+    <string>com.tuonome.RealEstate360</string>
+
+    <key>CFBundleShortVersionString</key>
+    <string>1.0</string>
+    
+    <key>CFBundleVersion</key>
+    <string>1</string>
+
+    <key>LSRequiresIPhoneOS</key>
+    <true/>
+
+    <!-- 📱 SceneDelegate support -->
+    <key>UIApplicationSceneManifest</key>
+    <dict>
+        <key>UIApplicationSupportsMultipleScenes</key>
+        <false/>
+        <key>UISceneConfigurations</key>
+        <dict>
+            <key>UIWindowSceneSessionRoleApplication</key>
+            <array>
+                <dict>
+                    <key>UISceneConfigurationName</key>
+                    <string>Default Configuration</string>
+                    <key>UISceneDelegateClassName</key>
+                    <string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
+                </dict>
+            </array>
+        </dict>
+    </dict>
+
+    <!-- 📸 Privacy Permissions -->
+    <key>NSCameraUsageDescription</key>
+    <string>Questa app usa la fotocamera per scattare immagini panoramiche a 360°.</string>
+
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Questa app accede alla tua galleria per selezionare o salvare immagini panoramiche.</string>
+
+    <key>NSPhotoLibraryAddUsageDescription</key>
+    <string>Salviamo le immagini scattate nella libreria fotografica del dispositivo.</string>
+
+    <!-- 🔄 Orientamento -->
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+    </array>
+
+    <!-- 🧭 Rotazione -->
+    <key>UIRequiresPersistentWiFi</key>
+    <false/>
+
+    <!-- 🎮 SceneKit rendering -->
+    <key>UIRequiredDeviceCapabilities</key>
+    <array>
+        <string>armv7</string>
+        <string>gyroscope</string>
+        <string>metal</string>
+    </array>
+
+</dict>
+</plist>
