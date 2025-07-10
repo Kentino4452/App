@@ -1,0 +1,28 @@
+# Ignora build, cache e file temporanei
+build/
+DerivedData/
+.DS_Store
+
+# Ignora file Xcode temporanei e configurazioni utente
+*.xcuserstate
+*.xcworkspace/
+*.xcodeproj/
+xcuserdata/
+
+# Ignora dati sensibili o locali
+*.env
+Secrets.plist
+
+# Ignora pacchetti Swift Package Manager
+.swiftpm/
+Package.resolved
+
+# Ignora output compilati
+*.app/
+*.dSYM/
+
+# Ignora librerie CocoaPods (se usate)
+Pods/
+
+# Ignora file generati dal simulatore
+*.xcuserdatad/
