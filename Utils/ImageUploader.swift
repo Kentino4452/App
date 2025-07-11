@@ -36,7 +36,7 @@ struct ImageUploader {
             case .success(let responseData):
                 guard let json = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any],
                       let path = json["image_url"] as? String,
-                      let imageURL = URL(string: "http://127.0.0.1:8000" + path) else {
+                      let imageURL = URL(string: "https://realestate360-backend.onrender.com" + path) else {
                     completion(.failure(NSError(domain: "InvalidResponse", code: 1)))
                     return
                 }
