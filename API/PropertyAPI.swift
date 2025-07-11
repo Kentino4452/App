@@ -6,7 +6,7 @@ struct PropertyAPI {
                                category: String,
                                completion: @escaping (Result<Int, Error>) -> Void) {
         
-        guard let url = URL(string: "http://127.0.0.1:8000/api/properties/") else {
+        guard let url = URL(string: "https://realestate360-backend.onrender.com/api/properties/") else {
             completion(.failure(NSError(domain: "URL non valida", code: -1)))
             return
         }
@@ -46,7 +46,7 @@ struct PropertyAPI {
     static func getImages(for propertyID: Int,
                           completion: @escaping (Result<[URL], Error>) -> Void) {
 
-        let urlString = "http://127.0.0.1:8000/api/property/\(propertyID)/images/"
+        let urlString = "https://realestate360-backend.onrender.com/api/property/\(propertyID)/images/"
         guard let url = URL(string: urlString) else {
             completion(.failure(NSError(domain: "URL non valida", code: -1)))
             return
