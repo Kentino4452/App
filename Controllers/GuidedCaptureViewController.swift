@@ -194,7 +194,7 @@ private func processImageForStitching(_ image: UIImage) {
             // 📤 Upload immagine panoramica
             ImageUploader.upload(
                 image: panorama,
-                to: "http://127.0.0.1:8000/api/upload-panorama/",
+                to: "https://realestate360-backend.onrender.com/api/upload-panorama/",
                 propertyID: self.propertyID,
                 token: token
             ) { result in
