@@ -30,7 +30,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     private func validateTokenAndLaunchUI() {
-        guard let url = URL(string: "http://127.0.0.1:8000/api/me/") else {
+        guard let url = URL(string: "https://realestate360-backend.onrender.com/api/me/") else {
             setRoot(LoginViewController())
             return
         }
