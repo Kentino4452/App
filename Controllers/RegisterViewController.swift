@@ -102,7 +102,7 @@ class RegisterViewController: UIViewController, UITextFieldDelegate {
             "password": password
         ]
 
-        guard let url = URL(string: "http://127.0.0.1:8000/api/register/") else {
+        guard let url = URL(string: "https://realestate360-backend.onrender.com/api/register/") else {
             showAlert("URL non valido")
             return
         }
