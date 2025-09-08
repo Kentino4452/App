@@ -19,39 +19,13 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             return
         }
 
-        // ✅ Se c'è un token, validalo con API /api/me/
-        if let token = UserDefaults.standard.string(forKey: "authToken"), !token.isEmpty {
-            validateTokenAndLaunchUI()
-        } else {
-            // Nessun token → vai al login
-            window?.rootViewController = LoginViewController()
-            window?.makeKeyAndVisible()
-        }
-    }
-
-    private func validateTokenAndLaunchUI() {
-        guard let url = URL(string: "https://realestate360-backend.onrender.com/api/me/") else {
-            setRoot(LoginViewController())
-            return
-        }
-
-        APIClient.authorizedRequest(url: url) { result in
-            switch result {
-            case .success(_):
-                self.setRoot(MainTabBarController())
-            case .failure(_):
-                logoutAndReturnToLogin()
-            }
-        }
-    }
-
-    private func setRoot(_ viewController: UIViewController) {
-        DispatchQueue.main.async {
-            self.window?.rootViewController = viewController
-            self.window?.makeKeyAndVisible()
-        }
+        // 🔴 Saltiamo login/registrazione → entriamo direttamente nell'app
+        window?.rootViewController = MainTabBarController()
+        window?.makeKeyAndVisible()
     }
 }
+
+
 
 
 
