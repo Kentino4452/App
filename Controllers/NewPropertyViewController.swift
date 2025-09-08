@@ -80,16 +80,15 @@ class NewPropertyViewController: UIViewController {
             return
         }
 
-        let token = UserDefaults.standard.string(forKey: "authToken") ?? ""
         let category = categorySegment.titleForSegment(at: categorySegment.selectedSegmentIndex) ?? "Altro"
         
-        PropertyAPI.createProperty(title: title, description: description, category: category, token: token) { result in
+        PropertyAPI.createProperty(title: title, description: description, category: category) { result in
             DispatchQueue.main.async {
                 switch result {
                 case .success(let propertyID):
                     print("✅ Proprietà salvata con ID: \(propertyID)")
-                    let guidedVC = GuidedCaptureViewController()
-                    guidedVC.propertyID = propertyID
+                    // ✅ Usa init sicuro
+                    let guidedVC = GuidedCaptureViewController(propertyID: propertyID)
                     self.navigationController?.pushViewController(guidedVC, animated: true)
                     
                 case .failure(let error):
@@ -105,3 +104,4 @@ class NewPropertyViewController: UIViewController {
         present(alert, animated: true)
     }
 }
+
