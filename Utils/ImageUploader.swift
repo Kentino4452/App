@@ -2,10 +2,17 @@ import UIKit
 
 struct ImageUploader {
     static func upload(image: UIImage,
-                       to urlString: String,
-                       propertyID: Int,
+                       to propertyID: Int,
                        completion: @escaping (Result<URL, Error>) -> Void) {
         
+        // ✅ Validazione ID
+        guard propertyID > 0 else {
+            completion(.failure(NSError(domain: "InvalidPropertyID", code: -1)))
+            return
+        }
+        
+        // 🔗 Costruisci l’URL a partire dal propertyID
+        let urlString = "https://realestate360-backend.onrender-vv8d.com/api/properties/\(propertyID)/upload_image/"
         guard let url = URL(string: urlString) else {
             completion(.failure(NSError(domain: "InvalidURL", code: 0)))
             return
@@ -36,7 +43,7 @@ struct ImageUploader {
             case .success(let responseData):
                 guard let json = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any],
                       let path = json["image_url"] as? String,
-                      let imageURL = URL(string: "https://realestate360-backend.onrender.com" + path) else {
+                      let imageURL = URL(string: "https://realestate360-backend.onrender-vv8d.com" + path) else {
                     completion(.failure(NSError(domain: "InvalidResponse", code: 1)))
                     return
                 }
@@ -48,6 +55,7 @@ struct ImageUploader {
         }
     }
 }
+
 
 
 
