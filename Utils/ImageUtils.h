@@ -2,14 +2,20 @@
 
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
-#import <opencv2/core/core.hpp>
 
 NS_ASSUME_NONNULL_BEGIN
 
-/// Converte UIImage in cv::Mat. Se alpha è true, preserva canale alpha.
-void UIImageToMat(UIImage *image, cv::Mat &mat, bool alpha = false);
+/// Converte UIImage in un cv::Mat. Se alpha è true, preserva il canale alpha.
+/// Il parametro matPtr deve puntare a un cv::Mat.
+void UIImageToMat(UIImage *image, void *matPtr, bool alpha);
 
-/// Converte cv::Mat in UIImage. Restituisce nil se la conversione fallisce.
-UIImage * _Nullable MatToUIImage(const cv::Mat &mat);
+/// Converte un cv::Mat in UIImage.
+/// Il parametro matPtr deve puntare a un cv::Mat.
+UIImage * _Nullable MatToUIImage(const void *matPtr);
+
+/// Verifica la nitidezza di una UIImage usando la varianza del Laplaciano.
+/// Ritorna true se l’immagine è abbastanza nitida.
+BOOL IsImageSharp(UIImage *image, double threshold);
 
 NS_ASSUME_NONNULL_END
+
