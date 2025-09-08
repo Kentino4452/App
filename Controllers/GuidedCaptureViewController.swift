@@ -12,15 +12,25 @@ class GuidedCaptureViewController: UIViewController, AVCapturePhotoCaptureDelega
     private var referenceYaw: Double?
     private let targetAngleStep = Double.pi / 12 // 15°
     private var nextTargetAngle: Double = 0
+    private var isCapturing = false
+    private var retryCount = 0
 
     private let progressCircle = CircularProgressView()
-    private var isCapturing = false
     private let ghostPreview = UIImageView()
 
-    private var hdrBracketImages: [CIImage] = []
     private var stitchedImages: [UIImage] = []
-    var propertyID: Int!
-    private let expectedShots = 24 // Numero di foto HDR da accumulare prima dello stitching
+    private let propertyID: Int   // 🔒 obbligatorio
+    private let expectedShots = 24
+
+    // ✅ Init sicuro: obbliga a passare propertyID
+    init(propertyID: Int) {
+        self.propertyID = propertyID
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) non implementato, usa init(propertyID:)")
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -41,6 +51,7 @@ class GuidedCaptureViewController: UIViewController, AVCapturePhotoCaptureDelega
         }
     }
 
+    // MARK: - Setup
     private func checkPermissionsAndSetup() {
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized:
@@ -58,7 +69,6 @@ class GuidedCaptureViewController: UIViewController, AVCapturePhotoCaptureDelega
 
     private func setupCaptureSession() {
         captureSession.beginConfiguration()
-
         guard let camera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) else {
             showCameraErrorAlert()
             return
@@ -68,7 +78,6 @@ class GuidedCaptureViewController: UIViewController, AVCapturePhotoCaptureDelega
             if captureSession.canAddInput(input) {
                 captureSession.addInput(input)
             }
-
             if captureSession.canAddOutput(photoOutput) {
                 captureSession.addOutput(photoOutput)
             }
@@ -79,8 +88,9 @@ class GuidedCaptureViewController: UIViewController, AVCapturePhotoCaptureDelega
             view.layer.insertSublayer(previewLayer, at: 0)
 
             captureSession.commitConfiguration()
-            captureSession.startRunning()
-
+            DispatchQueue.global(qos: .userInitiated).async {
+                self.captureSession.startRunning()
+            }
             startMotionUpdates()
         } catch {
             showCameraErrorAlert()
@@ -100,6 +110,7 @@ class GuidedCaptureViewController: UIViewController, AVCapturePhotoCaptureDelega
         view.addSubview(progressCircle)
     }
 
+    // MARK: - Motion
     private func startMotionUpdates() {
         motionManager.deviceMotionUpdateInterval = 0.05
         motionManager.startDeviceMotionUpdates(to: .main) { [weak self] (motion, _) in
@@ -116,114 +127,97 @@ class GuidedCaptureViewController: UIViewController, AVCapturePhotoCaptureDelega
 
             if abs(delta) < 0.05 && !self.isCapturing {
                 self.isCapturing = true
-                self.captureHDRBracket()
-                self.nextTargetAngle = self.normalizeAngle(self.nextTargetAngle + self.targetAngleStep)
-
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-                    self.isCapturing = false
-                }
+                self.captureSinglePhoto()
             }
         }
     }
 
-    private func captureHDRBracket() {
-        let settings = AVCapturePhotoBracketSettings(rawPixelFormatType: 0,
-                                                     processedFormat: [AVVideoCodecKey: AVVideoCodecType.jpeg],
-                                                     bracketedSettings: [
-                                                        AVCaptureAutoExposureBracketedStillImageSettings.autoExposureSettings(exposureTargetBias: -1.0),
-                                                        AVCaptureAutoExposureBracketedStillImageSettings.autoExposureSettings(exposureTargetBias: 0.0),
-                                                        AVCaptureAutoExposureBracketedStillImageSettings.autoExposureSettings(exposureTargetBias: 1.0)
-                                                     ])
+    // MARK: - Capture
+    private func captureSinglePhoto() {
+        let settings = AVCapturePhotoSettings()
         settings.isHighResolutionPhotoEnabled = true
+        if photoOutput.supportedFlashModes.contains(.off) {
+            settings.flashMode = .off
+        }
         photoOutput.capturePhoto(with: settings, delegate: self)
     }
 
-    func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
+    func photoOutput(_ output: AVCapturePhotoOutput,
+                     didFinishProcessingPhoto photo: AVCapturePhoto,
+                     error: Error?) {
         if let error = error {
-            print("Errore scatto: \(error.localizedDescription)")
+            print("❌ Errore scatto: \(error.localizedDescription)")
+            isCapturing = false
+            return
+        }
+        guard let data = photo.fileDataRepresentation(),
+              let image = UIImage(data: data) else {
+            isCapturing = false
             return
         }
 
-        guard let data = photo.fileDataRepresentation(),
-              let ciImage = CIImage(data: data) else { return }
-
-        hdrBracketImages.append(ciImage)
-
-        if hdrBracketImages.count == 3 {
-            let merged = mergeHDR(images: hdrBracketImages)
-            let context = CIContext()
-            if let merged = merged,
-               let cgImage = context.createCGImage(merged, from: merged.extent) {
-                let finalImage = UIImage(cgImage: cgImage)
-                ghostPreview.image = finalImage
-                processImageForStitching(finalImage)
-            }
-            hdrBracketImages.removeAll()
-        }
-    }
-
-    private func mergeHDR(images: [CIImage]) -> CIImage? {
-        guard images.count == 3 else { return nil }
-        let filter = CIFilter(name: "CIHighlightShadowAdjust")
-        filter?.setValue(images[1], forKey: kCIInputImageKey)
-        filter?.setValue(1.0, forKey: "inputShadowAmount")
-        filter?.setValue(0.7, forKey: "inputHighlightAmount")
-        return filter?.outputImage
-    }
-
-private func processImageForStitching(_ image: UIImage) {
-    stitchedImages.append(image)
-
-    if stitchedImages.count == expectedShots {
-        let stitcher = ImageStitcher()
-        stitcher.panoConfidenceThresh = 0.8
-        stitcher.blendingStrength = 8
-        stitcher.waveCorrection = true
-
-        var error: NSError?
-        if let panorama = stitcher.stitchImages(stitchedImages, error: &error) {
-            
-            // 🔐 Recupero token salvato
-            guard let token = UserDefaults.standard.string(forKey: "authToken") else {
-                print("⚠️ Token non trovato. Upload non eseguito.")
+        // 🔍 Controllo nitidezza (usa ImageUtils.mm)
+        if !IsImageSharp(image, 100.0) {
+            if retryCount < 2 {
+                retryCount += 1
+                print("⚠️ Foto sfocata, retry #\(retryCount)")
+                captureSinglePhoto()
+                return
+            } else {
+                print("❌ Foto troppo sfocata, scartata.")
+                retryCount = 0
+                isCapturing = false
                 return
             }
-
-            // 📤 Upload immagine panoramica
-            ImageUploader.upload(
-                image: panorama,
-                to: "https://realestate360-backend.onrender.com/api/upload-panorama/",
-                propertyID: self.propertyID,
-                token: token
-            ) { result in
-                DispatchQueue.main.async {
-                    switch result {
-                    case .success(let url):
-                        let viewer = PanoramaViewerViewController()
-                        viewer.modalPresentationStyle = .fullScreen
-                        viewer.panoramaImageURL = url
-                        self.present(viewer, animated: true)
-
-                    case .failure(let error):
-                        print("❌ Upload fallito: \(error.localizedDescription)")
-                        // (opzionale) mostra un alert all’utente
-                    }
-                }
-            }
-        } else {
-            print("❌ Errore stitching: \(error?.localizedDescription ?? "Sconosciuto")")
-            // (opzionale) mostra un alert all’utente
         }
 
-        // 🧹 Pulisce la lista per il prossimo uso
-        stitchedImages.removeAll()
+        retryCount = 0 // reset retry se foto valida
+        ghostPreview.image = image
+        processImageForStitching(image)
+
+        // Avanza all’angolo successivo
+        self.nextTargetAngle = self.normalizeAngle(self.nextTargetAngle + self.targetAngleStep)
+        self.isCapturing = false
     }
-}
 
+    // MARK: - Stitching
+    private func processImageForStitching(_ image: UIImage) {
+        stitchedImages.append(image)
 
+        if stitchedImages.count == expectedShots {
+            let stitcher = ImageStitcher()
+            stitcher.panoConfidenceThresh = 0.8
+            stitcher.blendingStrength = 8
+            stitcher.waveCorrection = true
 
+            do {
+                let panorama = try stitcher.stitch(stitchedImages)
+
+                ImageUploader.upload(
+                    image: panorama,
+                    to: self.propertyID
+                ) { result in
+                    DispatchQueue.main.async {
+                        switch result {
+                        case .success(let url):
+                            let viewer = PanoramaViewerViewController()
+                            viewer.modalPresentationStyle = .fullScreen
+                            viewer.panoramaImageURL = url
+                            self.present(viewer, animated: true)
+                        case .failure(let error):
+                            print("❌ Upload fallito: \(error.localizedDescription)")
+                        }
+                    }
+                }
+            } catch {
+                print("❌ Errore stitching: \(error.localizedDescription)")
+            }
+
+            stitchedImages.removeAll()
+        }
+    }
+
+    // MARK: - Helpers
     private func stopSessionAndMotion() {
         captureSession.stopRunning()
         motionManager.stopDeviceMotionUpdates()
@@ -255,3 +249,4 @@ private func processImageForStitching(_ image: UIImage) {
         return normalizeAngle(b - a)
     }
 }
+
