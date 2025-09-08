@@ -1,9 +1,16 @@
 // ImageStitcher.mm
 
 #import "ImageStitcher.h"
-#import <opencv2/opencv.hpp>
-#import <opencv2/stitching.hpp>
+
+// Evita conflitto tra UIKit (BOOL) NO e macro NO in OpenCV
+#ifdef NO
+#undef NO
+#endif
+
+#import "opencv.hpp"
+#import "stitching.hpp"
 #import "ImageUtils.h"
+#import "core.hpp"
 
 @implementation ImageStitcher
 
@@ -27,13 +34,14 @@
         return nil;
     }
 
+    // --- UIImage -> cv::Mat
     std::vector<cv::Mat> mats;
-    for (UIImage *image in images) {
-        if (!image) continue;
-        cv::Mat mat;
-        UIImageToMat(image, mat);
-        if (mat.empty()) continue;
-        mats.push_back(mat);
+    mats.reserve(images.count);
+    for (UIImage *img in images) {
+        if (!img) continue;
+        cv::Mat m;
+        UIImageToMat(img, &m, /*alpha*/false);
+        if (!m.empty()) mats.push_back(m);
     }
 
     if (mats.size() < 2) {
@@ -48,63 +56,79 @@
     cv::Mat pano;
     cv::Ptr<cv::Stitcher> stitcher = cv::Stitcher::create(cv::Stitcher::PANORAMA);
 
-    // Parametri di configurazione base
+    // --- Configurazione
     stitcher->setPanoConfidenceThresh(self.panoConfidenceThresh);
     stitcher->setWaveCorrection(self.waveCorrection);
-    stitcher->setWaveCorrectionKind(cv::detail::WAVE_CORRECT_HORIZ);
-    stitcher->setBlendingStrength(self.blendingStrength);
+    stitcher->setWaveCorrectKind(cv::detail::WAVE_CORRECT_HORIZ);
 
-    // Miglioramenti consigliati
-    stitcher->setFeaturesFinder(cv::makePtr<cv::detail::SIFTFeaturesFinder>());
+    // Feature finder non disponibile nella tua build iOS → lascia default
+    // stitcher->setFeaturesFinder(cv::makePtr<cv::detail::OrbFeaturesFinder>());
 
-    auto compensator = cv::detail::ExposureCompensator::createDefault(cv::detail::ExposureCompensator::CHANNELS);
-    stitcher->setExposureCompensator(compensator);
+    // Exposure compensator
+    {
+        auto compensator = cv::detail::ExposureCompensator::createDefault(
+            cv::detail::ExposureCompensator::CHANNELS);
+        stitcher->setExposureCompensator(compensator);
+    }
 
-    stitcher->setSeamFinder(cv::makePtr<cv::detail::GraphCutSeamFinder>("gc_color"));
+    // Seam finder
+    stitcher->setSeamFinder(cv::makePtr<cv::detail::GraphCutSeamFinder>(
+        cv::detail::GraphCutSeamFinderBase::COST_COLOR));
 
-    cv::Ptr<cv::detail::Blender> blender = cv::detail::Blender::createDefault(cv::detail::Blender::MULTI_BAND, false);
-    blender.dynamicCast<cv::detail::MultiBandBlender>()->setNumBands(5);
-    stitcher->setBlender(blender);
+    // Blender + “blendingStrength” mappato su numBands
+    {
+        cv::Ptr<cv::detail::Blender> blender =
+            cv::detail::Blender::createDefault(cv::detail::Blender::MULTI_BAND, false);
+        if (auto* mb = dynamic_cast<cv::detail::MultiBandBlender*>(blender.get())) {
+            int bands = (int)std::max(1.0, std::min(15.0, self.blendingStrength));
+            mb->setNumBands(bands);
+        }
+        stitcher->setBlender(blender);
+    }
 
+    // Warper sferico
     stitcher->setWarper(cv::makePtr<cv::SphericalWarper>());
 
-    // Esecuzione stitching
+    // --- Esecuzione stitching
     cv::Stitcher::Status status = stitcher->stitch(mats, pano);
 
     if (status == cv::Stitcher::OK && !pano.empty()) {
-        cv::Mat corrected = correctHorizon(pano);
-        return MatToUIImage(corrected);
-    } else {
-        if (error) {
-            NSString *reason;
-            switch (status) {
-                case cv::Stitcher::ERR_NEED_MORE_IMGS:
-                    reason = @"Servono più immagini per completare lo stitching.";
-                    break;
-                case cv::Stitcher::ERR_HOMOGRAPHY_EST_FAIL:
-                    reason = @"Impossibile stimare l'omografia. Controlla la sovrapposizione tra immagini.";
-                    break;
-                case cv::Stitcher::ERR_CAMERA_PARAMS_ADJUST_FAIL:
-                    reason = @"Fallita la regolazione dei parametri di camera. Possibile parallasse elevata.";
-                    break;
-                default:
-                    reason = @"Errore sconosciuto durante lo stitching.";
-                    break;
-            }
-            *error = [NSError errorWithDomain:@"ImageStitcher"
-                                         code:StitcherStatusErrorStitching
-                                     userInfo:@{
-                                         NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Errore di stitching (codice OpenCV %d)", (int)status],
-                                         NSLocalizedFailureReasonErrorKey: reason
-                                     }];
-        }
-#if DEBUG
-        NSLog(@"[Stitcher] Fallimento con codice %d", (int)status);
-#endif
-        return nil;
+        cv::Mat corrected = [self correctHorizon:pano];
+        return MatToUIImage((const void*)&corrected);
     }
+
+    // --- Error handling
+    if (error) {
+        NSString *reason;
+        switch (status) {
+            case cv::Stitcher::ERR_NEED_MORE_IMGS:
+                reason = @"Servono più immagini per completare lo stitching.";
+                break;
+            case cv::Stitcher::ERR_HOMOGRAPHY_EST_FAIL:
+                reason = @"Impossibile stimare l'omografia. Controlla la sovrapposizione tra immagini.";
+                break;
+            case cv::Stitcher::ERR_CAMERA_PARAMS_ADJUST_FAIL:
+                reason = @"Fallita la regolazione dei parametri di camera. Possibile parallasse elevata.";
+                break;
+            default:
+                reason = @"Errore sconosciuto durante lo stitching.";
+                break;
+        }
+        *error = [NSError errorWithDomain:@"ImageStitcher"
+                                     code:StitcherStatusErrorStitching
+                                 userInfo:@{
+                                     NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Errore di stitching (codice OpenCV %d)", (int)status],
+                                     NSLocalizedFailureReasonErrorKey: reason
+                                 }];
+    }
+#if DEBUG
+    NSLog(@"[Stitcher] Fallimento con codice %d", (int)status);
+#endif
+    return nil;
 }
-cv::Mat correctHorizon(const cv::Mat& image) {
+
+// Correzione orizzonte
+- (cv::Mat)correctHorizon:(const cv::Mat&)image {
     cv::Mat gray, edges;
     cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
     cv::Canny(gray, edges, 50, 150);
@@ -114,30 +138,25 @@ cv::Mat correctHorizon(const cv::Mat& image) {
 
     double angleSum = 0;
     int count = 0;
-
     for (const auto& line : lines) {
         float theta = line[1];
         double angle = theta * 180 / CV_PI;
-
-        if (angle > 80 && angle < 100) { // seleziona linee orizzontali (±10°)
-            angleSum += angle;
-            count++;
-        }
+        if (angle > 80 && angle < 100) { angleSum += angle; count++; }
     }
 
-    if (count == 0) return image; // nessuna linea da correggere
+    if (count == 0) return image;
 
-    double avgAngle = (angleSum / count) - 90.0; // deviazione dall'orizzontale
-
-    // Se la deviazione è trascurabile (<0.3°), non ruotare
+    double avgAngle = (angleSum / count) - 90.0;
     if (std::abs(avgAngle) < 0.3) return image;
 
-    // Applica rotazione affine
     cv::Point2f center(image.cols / 2.0f, image.rows / 2.0f);
     cv::Mat rotMat = cv::getRotationMatrix2D(center, avgAngle, 1.0);
     cv::Mat rotated;
     cv::warpAffine(image, rotated, rotMat, image.size(), cv::INTER_LINEAR, cv::BORDER_REPLICATE);
-
     return rotated;
 }
+
 @end
+
+
+
