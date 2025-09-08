@@ -28,3 +28,5 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Gestisci il rilascio delle risorse se necessario
     }
 }
+
+
