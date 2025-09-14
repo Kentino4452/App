@@ -22,6 +22,15 @@ class GuidedCaptureViewController: UIViewController, AVCapturePhotoCaptureDelega
     private let propertyID: Int   // 🔒 obbligatorio
     private let expectedShots = 24
 
+    // 🔄 Spinner per stitching
+    private let loadingIndicator: UIActivityIndicatorView = {
+        let spinner = UIActivityIndicatorView(style: .large)
+        spinner.hidesWhenStopped = true
+        spinner.color = .white
+        spinner.translatesAutoresizingMaskIntoConstraints = false
+        return spinner
+    }()
+
     // ✅ Init sicuro: obbliga a passare propertyID
     init(propertyID: Int) {
         self.propertyID = propertyID
@@ -35,6 +44,7 @@ class GuidedCaptureViewController: UIViewController, AVCapturePhotoCaptureDelega
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
+        setupLoadingIndicator()
         checkPermissionsAndSetup()
 
         // 🔍 Debug log per conferma
@@ -111,6 +121,14 @@ class GuidedCaptureViewController: UIViewController, AVCapturePhotoCaptureDelega
         progressCircle.frame = CGRect(x: 0, y: 0, width: 100, height: 100)
         progressCircle.center = view.center
         view.addSubview(progressCircle)
+    }
+
+    private func setupLoadingIndicator() {
+        view.addSubview(loadingIndicator)
+        NSLayoutConstraint.activate([
+            loadingIndicator.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            loadingIndicator.centerYAnchor.constraint(equalTo: view.centerYAnchor)
+        ])
     }
 
     // MARK: - Motion
@@ -191,33 +209,24 @@ class GuidedCaptureViewController: UIViewController, AVCapturePhotoCaptureDelega
             stitcher.blendingStrength = 8
             stitcher.waveCorrection = true
 
-            do {
-                let panorama = try stitcher.stitch(stitchedImages)
+            loadingIndicator.startAnimating() // 👉 Mostra spinner
 
-                // ✅ Upload solo se propertyID valido
-                guard propertyID > 0 else {
-                    print("❌ Upload bloccato: propertyID non valido")
-                    return
-                }
+            DispatchQueue.global(qos: .userInitiated).async {
+                do {
+                    let panorama = try stitcher.stitch(self.stitchedImages)
 
-                ImageUploader.upload(
-                    image: panorama,
-                    to: self.propertyID
-                ) { result in
                     DispatchQueue.main.async {
-                        switch result {
-                        case .success(let url):
-                            let viewer = PanoramaViewerViewController()
-                            viewer.modalPresentationStyle = .fullScreen
-                            viewer.panoramaImageURL = url
-                            self.present(viewer, animated: true)
-                        case .failure(let error):
-                            print("❌ Upload fallito: \(error.localizedDescription)")
-                        }
+                        self.loadingIndicator.stopAnimating()
+                        let reviewVC = PanoramaReviewViewController(propertyID: self.propertyID,
+                                                                    panorama: panorama)
+                        self.navigationController?.pushViewController(reviewVC, animated: true)
+                    }
+                } catch {
+                    DispatchQueue.main.async {
+                        self.loadingIndicator.stopAnimating()
+                        print("❌ Errore stitching: \(error.localizedDescription)")
                     }
                 }
-            } catch {
-                print("❌ Errore stitching: \(error.localizedDescription)")
             }
 
             stitchedImages.removeAll()
@@ -256,6 +265,8 @@ class GuidedCaptureViewController: UIViewController, AVCapturePhotoCaptureDelega
         return normalizeAngle(b - a)
     }
 }
+
+
 
 
 
