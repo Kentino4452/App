@@ -1,6 +1,18 @@
 import Foundation
 
+// MARK: - Modello base conforme al JSON del backend
+struct Property: Decodable {
+    let id: Int
+    let title: String
+    let description: String
+    let category: String
+    let address: String
+    let price: Double
+}
+
 struct PropertyAPI {
+    
+    // ✅ Creazione proprietà (già testata)
     static func createProperty(title: String,
                                description: String,
                                category: String,
@@ -37,7 +49,7 @@ struct PropertyAPI {
                     } else {
                         completion(.failure(NSError(domain: "PropertyAPI",
                                                     code: -3,
-                                                    userInfo: [NSLocalizedDescriptionKey: "ID mancante o non valido nella risposta"])))
+                                                    userInfo: [NSLocalizedDescriptionKey: "ID mancante o non valido nella risposta"])) )
                     }
                 } catch {
                     completion(.failure(error))
@@ -48,8 +60,8 @@ struct PropertyAPI {
             }
         }
     }
-
-    // ✅ NUOVA FUNZIONE: Recupero immagini della proprietà
+    
+    // ✅ Recupero immagini collegate a una proprietà (già testato)
     static func getImages(for propertyID: Int,
                           completion: @escaping (Result<[URL], Error>) -> Void) {
 
@@ -66,6 +78,7 @@ struct PropertyAPI {
                     if let jsonArray = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
                         let urls: [URL] = jsonArray.compactMap { dict in
                             if let path = dict["image_url"] as? String {
+                                // ⚠️ da sostituire con dominio corretto se serve (ora 127.0.0.1 per debug)
                                 return URL(string: "http://127.0.0.1:8000" + path)
                             }
                             return nil
@@ -83,7 +96,55 @@ struct PropertyAPI {
             }
         }
     }
+    
+    // ✅ Recupero lista di tutte le proprietà
+    static func getProperties(completion: @escaping (Result<[Property], Error>) -> Void) {
+        guard let url = URL(string: "https://realestate360-backend-vv8d.onrender.com/api/properties/") else {
+            completion(.failure(NSError(domain: "URL non valida", code: -1)))
+            return
+        }
+        
+        APIClient.authorizedRequest(url: url) { result in
+            switch result {
+            case .success(let data):
+                do {
+                    let properties = try JSONDecoder().decode([Property].self, from: data)
+                    completion(.success(properties))
+                } catch {
+                    completion(.failure(error))
+                }
+            case .failure(let error):
+                completion(.failure(error))
+            }
+        }
+    }
+    
+    // ✅ Recupero dettagli singola proprietà
+    static func getPropertyDetails(id: Int,
+                                   completion: @escaping (Result<Property, Error>) -> Void) {
+        let urlString = "https://realestate360-backend-vv8d.onrender.com/api/properties/\(id)/"
+        guard let url = URL(string: urlString) else {
+            completion(.failure(NSError(domain: "URL non valida", code: -1)))
+            return
+        }
+        
+        APIClient.authorizedRequest(url: url) { result in
+            switch result {
+            case .success(let data):
+                do {
+                    let property = try JSONDecoder().decode(Property.self, from: data)
+                    completion(.success(property))
+                } catch {
+                    completion(.failure(error))
+                }
+            case .failure(let error):
+                completion(.failure(error))
+            }
+        }
+    }
 }
+
+
 
 
 
