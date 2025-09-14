@@ -4,6 +4,8 @@ struct PropertyAPI {
     static func createProperty(title: String,
                                description: String,
                                category: String,
+                               address: String,
+                               price: Double,
                                completion: @escaping (Result<Int, Error>) -> Void) {
         
         guard let url = URL(string: "https://realestate360-backend-vv8d.onrender.com/api/properties/") else {
@@ -14,7 +16,9 @@ struct PropertyAPI {
         let bodyDict: [String: Any] = [
             "title": title,
             "description": description,
-            "category": category
+            "category": category,
+            "address": address,
+            "price": price
         ]
 
         guard let body = try? JSONSerialization.data(withJSONObject: bodyDict, options: []) else {
@@ -80,6 +84,8 @@ struct PropertyAPI {
         }
     }
 }
+
+
 
 
 
