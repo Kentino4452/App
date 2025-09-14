@@ -11,8 +11,8 @@ struct ImageUploader {
             return
         }
         
-        // 🔗 Costruisci l’URL a partire dal propertyID
-        let urlString = "https://realestate360-backend.onrender-vv8d.com/api/properties/\(propertyID)/upload_image/"
+        // 🔗 URL corretto
+        let urlString = "https://realestate360-backend-vv8d.onrender.com/api/properties/\(propertyID)/upload_image/"
         guard let url = URL(string: urlString) else {
             completion(.failure(NSError(domain: "InvalidURL", code: 0)))
             return
@@ -23,17 +23,13 @@ struct ImageUploader {
         var data = Data()
 
         data.append("--\(boundary)\r\n".data(using: .utf8)!)
-        data.append("Content-Disposition: form-data; name=\"property_id\"\r\n\r\n".data(using: .utf8)!)
-        data.append("\(propertyID)\r\n".data(using: .utf8)!)
-
-        data.append("--\(boundary)\r\n".data(using: .utf8)!)
         data.append("Content-Disposition: form-data; name=\"image\"; filename=\"panorama.jpg\"\r\n".data(using: .utf8)!)
         data.append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
         data.append(image.jpegData(compressionQuality: 0.8)!)
         data.append("\r\n".data(using: .utf8)!)
         data.append("--\(boundary)--\r\n".data(using: .utf8)!)
 
-        // 🔁 Usa APIClient con header e gestione token 401
+        // 🔁 Upload con token
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
@@ -43,7 +39,7 @@ struct ImageUploader {
             case .success(let responseData):
                 guard let json = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any],
                       let path = json["image_url"] as? String,
-                      let imageURL = URL(string: "https://realestate360-backend.onrender-vv8d.com" + path) else {
+                      let imageURL = URL(string: "https://realestate360-backend-vv8d.onrender.com" + path) else {
                     completion(.failure(NSError(domain: "InvalidResponse", code: 1)))
                     return
                 }
@@ -55,6 +51,8 @@ struct ImageUploader {
         }
     }
 }
+
+
 
 
 
