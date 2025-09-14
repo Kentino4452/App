@@ -1,4 +1,5 @@
 import UIKit
+import SDWebImage
 
 final class PropertyDetailViewController: UIViewController {
     
@@ -89,9 +90,10 @@ final class PropertyDetailViewController: UIViewController {
         collectionView.register(PropertyImageCell.self, forCellWithReuseIdentifier: PropertyImageCell.reuseID)
         collectionView.dataSource = self
         collectionView.delegate = self
+        collectionView.isScrollEnabled = false // scrolla tutta la pagina, non solo la collection
         
         contentStack.addArrangedSubview(collectionView)
-        collectionView.heightAnchor.constraint(equalToConstant: 400).isActive = true
+        collectionView.heightAnchor.constraint(greaterThanOrEqualToConstant: 160).isActive = true
     }
     
     // MARK: - API Calls
@@ -102,7 +104,7 @@ final class PropertyDetailViewController: UIViewController {
                 DispatchQueue.main.async {
                     self?.titleLabel.text = property.title
                     self?.addressLabel.text = property.address
-                    self?.priceLabel.text = "€\(property.price)"
+                    self?.priceLabel.text = self?.formatPrice(property.price)
                     self?.descriptionLabel.text = property.description
                 }
             case .failure(let error):
@@ -129,7 +131,14 @@ final class PropertyDetailViewController: UIViewController {
         }
     }
     
-    // MARK: - Alert
+    // MARK: - Helpers
+    private func formatPrice(_ value: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.locale = Locale(identifier: "it_IT")
+        return formatter.string(from: NSNumber(value: value)) ?? "€\(value)"
+    }
+    
     private func showAlert(_ message: String) {
         let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default))
@@ -192,13 +201,10 @@ final class PropertyImageCell: UICollectionViewCell {
     }
     
     func configure(with url: URL) {
-        DispatchQueue.global().async {
-            if let data = try? Data(contentsOf: url),
-               let img = UIImage(data: data) {
-                DispatchQueue.main.async { self.imageView.image = img }
-            }
-        }
+        imageView.sd_setImage(with: url, placeholderImage: UIImage(systemName: "photo"))
     }
 }
+
+
 
 
