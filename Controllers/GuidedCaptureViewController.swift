@@ -36,6 +36,9 @@ class GuidedCaptureViewController: UIViewController, AVCapturePhotoCaptureDelega
         super.viewDidLoad()
         setupUI()
         checkPermissionsAndSetup()
+
+        // 🔍 Debug log per conferma
+        print("📌 GuidedCaptureViewController avviato con propertyID =", propertyID)
     }
 
     override func viewWillDisappear(_ animated: Bool) {
@@ -156,7 +159,6 @@ class GuidedCaptureViewController: UIViewController, AVCapturePhotoCaptureDelega
             return
         }
 
-        // 🔍 Controllo nitidezza (usa ImageUtils.mm)
         if !IsImageSharp(image, 100.0) {
             if retryCount < 2 {
                 retryCount += 1
@@ -171,11 +173,10 @@ class GuidedCaptureViewController: UIViewController, AVCapturePhotoCaptureDelega
             }
         }
 
-        retryCount = 0 // reset retry se foto valida
+        retryCount = 0
         ghostPreview.image = image
         processImageForStitching(image)
 
-        // Avanza all’angolo successivo
         self.nextTargetAngle = self.normalizeAngle(self.nextTargetAngle + self.targetAngleStep)
         self.isCapturing = false
     }
@@ -192,6 +193,12 @@ class GuidedCaptureViewController: UIViewController, AVCapturePhotoCaptureDelega
 
             do {
                 let panorama = try stitcher.stitch(stitchedImages)
+
+                // ✅ Upload solo se propertyID valido
+                guard propertyID > 0 else {
+                    print("❌ Upload bloccato: propertyID non valido")
+                    return
+                }
 
                 ImageUploader.upload(
                     image: panorama,
@@ -249,4 +256,6 @@ class GuidedCaptureViewController: UIViewController, AVCapturePhotoCaptureDelega
         return normalizeAngle(b - a)
     }
 }
+
+
 
