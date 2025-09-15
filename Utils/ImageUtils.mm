@@ -75,8 +75,8 @@ void UIImageToMat(UIImage *image, void *matPtr, bool alpha) {
         cv::cvtColor(mat, mat, cv::COLOR_RGBA2BGRA);
     }
 
-    // ✅ Resize automatico (max lato 2000px per risparmiare RAM)
-    mat = resizeIfNeeded(mat, 2000);
+    // ✅ Resize automatico (max lato 3000px per risparmiare RAM)
+    mat = resizeIfNeeded(mat, 3000);
 }
 
 UIImage * MatToUIImage(const void *matPtr) {
@@ -144,5 +144,7 @@ BOOL IsImageSharp(UIImage *image, double threshold) {
 
     return stddev[0] > threshold;
 }
+
+
 
 
