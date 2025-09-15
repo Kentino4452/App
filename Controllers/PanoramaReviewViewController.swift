@@ -88,24 +88,40 @@ final class PanoramaReviewViewController: UIViewController {
     
     // MARK: - Actions
     @objc private func handlePublish() {
+        // 🔄 Spinner + messaggio "Pubblicazione in corso"
+        let alert = UIAlertController(title: nil, message: "Pubblicazione in corso…", preferredStyle: .alert)
+        let spinner = UIActivityIndicatorView(style: .medium)
+        spinner.translatesAutoresizingMaskIntoConstraints = false
+        spinner.startAnimating()
+        alert.view.addSubview(spinner)
+        
+        NSLayoutConstraint.activate([
+            spinner.centerXAnchor.constraint(equalTo: alert.view.centerXAnchor),
+            spinner.bottomAnchor.constraint(equalTo: alert.view.bottomAnchor, constant: -20)
+        ])
+        
+        present(alert, animated: true)
+        
         ImageUploader.upload(image: panorama, to: propertyID) { result in
             DispatchQueue.main.async {
-                switch result {
-                case .success(_):
-                    let alert = UIAlertController(title: "Pubblicato ✅",
-                                                  message: "Il tour è stato caricato correttamente.",
-                                                  preferredStyle: .alert)
-                    alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in
-                        self.dismiss(animated: true)
-                    })
-                    self.present(alert, animated: true)
-                    
-                case .failure(let error):
-                    let alert = UIAlertController(title: "Errore",
-                                                  message: error.localizedDescription,
-                                                  preferredStyle: .alert)
-                    alert.addAction(UIAlertAction(title: "OK", style: .default))
-                    self.present(alert, animated: true)
+                alert.dismiss(animated: true) {
+                    switch result {
+                    case .success(_):
+                        let done = UIAlertController(title: "Pubblicato ✅",
+                                                     message: "Il tour è stato caricato correttamente.",
+                                                     preferredStyle: .alert)
+                        done.addAction(UIAlertAction(title: "OK", style: .default) { _ in
+                            self.dismiss(animated: true)
+                        })
+                        self.present(done, animated: true)
+                        
+                    case .failure(let error):
+                        let fail = UIAlertController(title: "Errore",
+                                                     message: error.localizedDescription,
+                                                     preferredStyle: .alert)
+                        fail.addAction(UIAlertAction(title: "OK", style: .default))
+                        self.present(fail, animated: true)
+                    }
                 }
             }
         }
@@ -116,4 +132,5 @@ final class PanoramaReviewViewController: UIViewController {
         navigationController?.popViewController(animated: true)
     }
 }
+
 
