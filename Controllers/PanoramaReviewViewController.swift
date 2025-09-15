@@ -44,7 +44,6 @@ final class PanoramaReviewViewController: UIViewController {
         view.backgroundColor = .black
         setupViewer()
         setupButtons()
-        addCloseButton()
     }
     
     // MARK: - Setup Viewer
@@ -87,35 +86,12 @@ final class PanoramaReviewViewController: UIViewController {
         retryButton.addTarget(self, action: #selector(handleRetry), for: .touchUpInside)
     }
     
-    // MARK: - Close Button
-    private func addCloseButton() {
-        let buttonSize: CGFloat = 40
-        let closeButton = UIButton(type: .system)
-        
-        let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .medium)
-        let closeImage = UIImage(systemName: "xmark.circle.fill", withConfiguration: config)
-        closeButton.setImage(closeImage, for: .normal)
-        closeButton.tintColor = .white
-        closeButton.backgroundColor = UIColor.black.withAlphaComponent(0.3)
-        closeButton.layer.cornerRadius = buttonSize / 2
-        closeButton.clipsToBounds = true
-        
-        closeButton.frame = CGRect(x: view.bounds.width - buttonSize - 20,
-                                   y: 50,
-                                   width: buttonSize,
-                                   height: buttonSize)
-        closeButton.autoresizingMask = [.flexibleLeftMargin, .flexibleBottomMargin]
-        closeButton.addTarget(self, action: #selector(closeViewer), for: .touchUpInside)
-        
-        view.addSubview(closeButton)
-    }
-    
     // MARK: - Actions
     @objc private func handlePublish() {
         ImageUploader.upload(image: panorama, to: propertyID) { result in
             DispatchQueue.main.async {
                 switch result {
-                case .success(let url):
+                case .success(_):
                     let alert = UIAlertController(title: "Pubblicato ✅",
                                                   message: "Il tour è stato caricato correttamente.",
                                                   preferredStyle: .alert)
@@ -139,8 +115,5 @@ final class PanoramaReviewViewController: UIViewController {
         // 👉 Torna indietro al GuidedCapture per rifare gli scatti
         navigationController?.popViewController(animated: true)
     }
-    
-    @objc private func closeViewer() {
-        dismiss(animated: true)
-    }
 }
+
