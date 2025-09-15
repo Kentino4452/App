@@ -12,7 +12,9 @@
 #import "ImageUtils.h"
 #import "core.hpp"
 
-@implementation ImageStitcher
+@implementation ImageStitcher {
+    cv::Ptr<cv::Stitcher> _stitcher; // 🔧 miglioramento 2: reuse dello stitcher
+}
 
 - (instancetype)init {
     self = [super init];
@@ -20,6 +22,9 @@
         _panoConfidenceThresh = 0.7;
         _blendingStrength = 8.0;
         _waveCorrection = YES;
+
+        // 🔧 miglioramento 2: inizializza lo stitcher una sola volta
+        _stitcher = cv::Stitcher::create(cv::Stitcher::PANORAMA);
     }
     return self;
 }
@@ -54,43 +59,45 @@
     }
 
     cv::Mat pano;
-    cv::Ptr<cv::Stitcher> stitcher = cv::Stitcher::create(cv::Stitcher::PANORAMA);
 
-    // --- Configurazione
-    stitcher->setPanoConfidenceThresh(self.panoConfidenceThresh);
-    stitcher->setWaveCorrection(self.waveCorrection);
-    stitcher->setWaveCorrectKind(cv::detail::WAVE_CORRECT_HORIZ);
+    // --- Configurazione dello stitcher riusato
+    _stitcher->setPanoConfidenceThresh(self.panoConfidenceThresh);
+    _stitcher->setWaveCorrection(self.waveCorrection);
+    _stitcher->setWaveCorrectKind(cv::detail::WAVE_CORRECT_HORIZ);
 
-    // Feature finder non disponibile nella tua build iOS → lascia default
-    // stitcher->setFeaturesFinder(cv::makePtr<cv::detail::OrbFeaturesFinder>());
-
-    // Exposure compensator
+    // Exposure compensator 🔧 miglioramento 5
     {
-        auto compensator = cv::detail::ExposureCompensator::createDefault(
-            cv::detail::ExposureCompensator::CHANNELS);
-        stitcher->setExposureCompensator(compensator);
+        auto compensator = cv::makePtr<cv::detail::BlocksGainCompensator>();
+        _stitcher->setExposureCompensator(compensator);
     }
 
     // Seam finder
-    stitcher->setSeamFinder(cv::makePtr<cv::detail::GraphCutSeamFinder>(
+    _stitcher->setSeamFinder(cv::makePtr<cv::detail::GraphCutSeamFinder>(
         cv::detail::GraphCutSeamFinderBase::COST_COLOR));
 
-    // Blender + “blendingStrength” mappato su numBands
+    // Blender 🔧 miglioramento 3: livelli qualità al posto di valore libero
     {
         cv::Ptr<cv::detail::Blender> blender =
             cv::detail::Blender::createDefault(cv::detail::Blender::MULTI_BAND, false);
         if (auto* mb = dynamic_cast<cv::detail::MultiBandBlender*>(blender.get())) {
-            int bands = (int)std::max(1.0, std::min(15.0, self.blendingStrength));
+            int bands;
+            if (self.blendingStrength < 5.0) {
+                bands = 3; // Low
+            } else if (self.blendingStrength < 10.0) {
+                bands = 7; // Medium
+            } else {
+                bands = 12; // High
+            }
             mb->setNumBands(bands);
         }
-        stitcher->setBlender(blender);
+        _stitcher->setBlender(blender);
     }
 
     // Warper sferico
-    stitcher->setWarper(cv::makePtr<cv::SphericalWarper>());
+    _stitcher->setWarper(cv::makePtr<cv::SphericalWarper>());
 
     // --- Esecuzione stitching
-    cv::Stitcher::Status status = stitcher->stitch(mats, pano);
+    cv::Stitcher::Status status = _stitcher->stitch(mats, pano);
 
     if (status == cv::Stitcher::OK && !pano.empty()) {
         cv::Mat corrected = [self correctHorizon:pano];
@@ -134,7 +141,7 @@
     cv::Canny(gray, edges, 50, 150);
 
     std::vector<cv::Vec2f> lines;
-    cv::HoughLines(edges, lines, 1, CV_PI/180, 250);
+    cv::HoughLines(edges, lines, 1, CV_PI/180, 250); // 🔧 miglioramento 1: CV_PI moderno
 
     double angleSum = 0;
     int count = 0;
@@ -157,6 +164,8 @@
 }
 
 @end
+
+
 
 
 
